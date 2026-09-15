@@ -1,0 +1,109 @@
+name: quality
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+          pip install -e .
+
+      - name: Check formatting
+        run: black --check src tests scripts examples
+
+      - name: Lint
+        run: ruff check src tests scripts examples
+
+      - name: Type check
+        run: mypy
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Scan tracked files for credentials
+        run: python scripts/secrets_scan.py
+
+      - name: Confirm no environment file is tracked
+        run: |
+          if git ls-files --error-unmatch .env >/dev/null 2>&1; then
+            echo "::error::.env is tracked by git"
+            exit 1
+          fi
+
+      - name: Confirm no dataset or model artifact is tracked
+        run: |
+          oversized=$(git ls-files -z \
+            | xargs -0 -I{} sh -c 'test -f "{}" && [ "$(wc -c < "{}")" -gt 2097152 ] && echo "{}"' \
+            || true)
+          if [ -n "${oversized}" ]; then
+            echo "::error::files larger than 2MB are tracked:"
+            echo "${oversized}"
+            exit 1
+          fi
+          for pattern in '*.parquet' '*.joblib' '*.sqlite3' 'mlflow.db'; do
+            found=$(git ls-files "${pattern}")
+            if [ -n "${found}" ]; then
+              echo "::error::generated artifacts are tracked: ${found}"
+              exit 1
+            fi
+          done
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build the distribution
+        run: |
+          python -m pip install --upgrade pip build twine
+          python -m build
+          twine check dist/*
+
+      - name: Build the container image
+        run: docker build --target runtime -t rtml:ci .
+
+      - name: Start the container and check its health endpoint
+        run: |
+          docker run -d --name rtml-ci -p 8000:8000 rtml:ci
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://localhost:8000/health > /tmp/health.json; then
+              cat /tmp/health.json
+              # No model is baked into the image, so the service must report
+              # degraded with a reason rather than crash-looping.
+              python -c "import json,sys; d=json.load(open('/tmp/health.json')); sys.exit(0 if d['status'] in ('ok','degraded') else 1)"
+              docker rm -f rtml-ci
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "::error::the service did not become healthy"
+          docker logs rtml-ci
+          docker rm -f rtml-ci
+          exit 1
