@@ -240,10 +240,11 @@ the in-process implementation. Configuration is in
 [`docker-compose.yml`](docker-compose.yml); alert rules are in
 [`deployment/prometheus/alerts.yml`](deployment/prometheus/alerts.yml).
 
-> The container images in this repository build and the compose file is complete,
-> but no Docker daemon was available in the environment used to produce
-> `docs/results.md`, so the stack has not been executed end to end. The
-> measurements there come from the local pipeline, not from the compose stack.
+> CI builds the runtime image, starts the container and verifies its health
+> endpoint on every change. The full compose stack — PostgreSQL, Kafka,
+> Prometheus and Grafana together — has not been run: no Docker daemon was
+> available in the environment used to produce `docs/results.md`, and those
+> measurements come from the local pipeline rather than from the stack.
 
 ---
 

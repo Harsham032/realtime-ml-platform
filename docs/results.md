@@ -561,9 +561,12 @@ What these numbers do not support:
 - **The Kafka path was not run against a real cluster.** It is exercised against
   an in-process broker implementing the same interface and semantics, plus tests
   marked `kafka` that are deselected when no broker is reachable.
-- **The Docker stack was not executed.** The images build from the Dockerfile in
-  this repository and the compose file is complete, but no Docker daemon was
-  available in the environment used for these measurements.
+- **The compose stack was not executed.** CI builds the runtime image, starts the
+  container and checks its health endpoint, which reports `degraded` with the
+  reason `no model at artifacts/champion.joblib` - the designed behaviour for an
+  image with no model baked in. What has *not* been run is the full compose
+  stack with PostgreSQL, Kafka, Prometheus and Grafana together; no Docker
+  daemon was available in the environment used for the measurements above.
 - **Drift detection is univariate.** Correlated multivariate drift that leaves
   every marginal distribution unchanged will not be caught.
 - **Card precision@k is a proxy** for a fixed investigator budget, not a monetary
