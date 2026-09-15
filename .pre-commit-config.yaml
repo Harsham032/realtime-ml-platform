@@ -1,0 +1,47 @@
+# Install with: .venv/bin/pre-commit install
+# Run over everything with: .venv/bin/pre-commit run --all-files
+default_language_version:
+  python: python3.11
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+        args: ["--maxkb=512"]
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: detect-private-key
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: ["--fix=lf"]
+      - id: trailing-whitespace
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.5.7
+    hooks:
+      - id: ruff
+        args: ["--fix"]
+
+  - repo: https://github.com/psf/black
+    rev: 24.8.0
+    hooks:
+      - id: black
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+      - id: mypy
+        files: ^src/
+        additional_dependencies:
+          - pydantic>=2.6
+          - types-PyYAML>=6.0
+
+  - repo: local
+    hooks:
+      - id: secrets-scan
+        name: secrets scan
+        entry: python scripts/secrets_scan.py
+        language: system
+        pass_filenames: false

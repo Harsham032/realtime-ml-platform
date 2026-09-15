@@ -1,0 +1,71 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+build/
+dist/
+*.egg-info/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Testing and type caches
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.mypy_cache/
+.ruff_cache/
+.hypothesis/
+
+# Secrets
+.env
+.env.local
+*.pem
+*.key
+!.env.example
+
+# Generated datasets - regenerate with `make data`
+data/raw/
+data/interim/
+data/processed/
+data/features/
+!data/README.md
+
+# Model and experiment artifacts
+artifacts/
+mlruns/
+mlartifacts/
+mlflow.db
+*.joblib
+*.pkl
+*.onnx
+*.ubj
+*.txt.model
+
+# Reports - regenerate with `make experiment`
+reports/*
+!reports/.gitkeep
+
+# Streaming state
+streams/
+*.offsets
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+logs/
+*.log
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+.ipynb_checkpoints/

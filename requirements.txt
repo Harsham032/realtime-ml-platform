@@ -1,0 +1,21 @@
+# Runtime dependencies. Optional backends (PostgreSQL, Redis) are extras in
+# pyproject.toml so the default install stays small and runs offline.
+numpy>=1.26
+pandas>=2.2
+scipy>=1.11
+scikit-learn>=1.4
+xgboost>=2.0
+lightgbm>=4.3
+joblib>=1.3
+pyarrow>=15.0
+mlflow>=2.12
+kafka-python>=2.0
+pydantic>=2.6
+pydantic-settings>=2.2
+fastapi>=0.110
+uvicorn[standard]>=0.29
+SQLAlchemy>=2.0
+structlog>=24.1
+prometheus-client>=0.20
+PyYAML>=6.0
+python-dotenv>=1.0

@@ -1,0 +1,69 @@
+# Reduced configuration for continuous integration and quick iteration.
+# Same pipeline as configs/default.yaml on roughly a seventh of the data, so a
+# full run finishes in well under a minute. Results from this configuration are
+# not the published benchmark - docs/results.md reports configs/default.yaml.
+
+run:
+  name: fast
+  seed: 20260101
+  output_dir: reports
+
+simulation:
+  n_customers: 1500
+  n_terminals: 3000
+  n_days: 90
+  start_date: "2025-01-01"
+  radius: 5.0
+
+split:
+  train_days: 56
+  delay_days: 7
+  test_days: 21
+  validation_days: 14
+
+features:
+  customer_windows: [1, 7, 30]
+  terminal_windows: [1, 7, 30]
+  risk_delay_days: 7
+  night_start_hour: 0
+  night_end_hour: 6
+
+models:
+  enabled: [logistic_regression, random_forest, xgboost, lightgbm]
+  class_weight: balanced
+  logistic_regression: {C: 1.0, max_iter: 2000}
+  random_forest: {n_estimators: 100, max_depth: 10, min_samples_leaf: 20}
+  xgboost: {n_estimators: 150, max_depth: 6, learning_rate: 0.1, subsample: 0.8, colsample_bytree: 0.8}
+  lightgbm: {n_estimators: 150, num_leaves: 31, learning_rate: 0.1, min_child_samples: 50}
+  isolation_forest: {n_estimators: 100, contamination: auto}
+
+evaluation:
+  primary_metric: pr_auc
+  top_k_per_day: 100
+  threshold_objective: f1
+  target_precision: 0.60
+  target_recall: 0.60
+  bootstrap_resamples: 200
+
+drift:
+  psi_warn: 0.10
+  psi_alert: 0.25
+  ks_alert_pvalue: 0.01
+  bins: 10
+  reference_days: 14
+  comparison_days: 7
+
+promotion:
+  min_pr_auc: 0.30
+  min_pr_auc_improvement: 0.005
+  max_latency_regression_ms: 5.0
+  min_evaluation_frauds: 50
+  require_calibration: true
+  max_brier_regression: 0.002
+
+streaming:
+  backend: inprocess
+  partitions: 4
+  batch_size: 500
+  poll_timeout_seconds: 1.0
+  speedup: 0.0
