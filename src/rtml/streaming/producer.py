@@ -81,6 +81,10 @@ def publish_transactions(
     start = time.perf_counter()
     previous: pd.Timestamp | None = None
 
+    # itertuples yields namedtuples whose fields are the frame's columns, so a
+    # type checker can only see the union of every scalar a DataFrame may hold.
+    # to_event takes Any for the same reason.
+    row: Any
     for row in ordered.itertuples():
         if speedup > 0 and previous is not None:
             gap = (pd.Timestamp(row.tx_datetime) - previous).total_seconds() / speedup

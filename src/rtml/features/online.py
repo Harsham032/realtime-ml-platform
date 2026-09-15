@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from bisect import bisect_right
 from collections import defaultdict
+from typing import Any
 
 import numpy as np
 import pandas as pd
@@ -248,6 +249,9 @@ class OnlineFeatureStore:
         """
         ordered = frame.sort_values("tx_datetime", kind="stable")
         deferred: list[tuple[float, int, int]] = []
+        # See producer.publish_transactions: itertuples fields are only knowable
+        # at runtime, so a checker sees the union of every DataFrame scalar type.
+        row: Any
         for row in ordered.itertuples():
             timestamp = pd.Timestamp(row.tx_datetime).timestamp()
             self.observe_transaction(int(row.customer_id), timestamp, float(row.tx_amount))

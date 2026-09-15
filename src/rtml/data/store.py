@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 from sqlalchemy import (
@@ -134,7 +134,10 @@ class PredictionStore:
         if frame.empty:
             return 0
         columns = [c.name for c in transactions_table.columns if c.name in frame.columns]
-        payload = frame[columns].to_dict("records")
+        # to_dict("records") is typed with Hashable keys because a DataFrame may
+        # be keyed by anything; here the keys are `columns`, which are the
+        # table's column names and therefore str.
+        payload = cast(list[dict[str, Any]], frame[columns].to_dict("records"))
         ids = [int(row["transaction_id"]) for row in payload]
 
         with self.engine.begin() as connection:
