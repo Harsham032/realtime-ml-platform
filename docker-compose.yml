@@ -1,0 +1,105 @@
+# Local stack. `docker compose up api` is enough to try the service; Kafka and
+# PostgreSQL are wired for the configurations that need them.
+#
+# The API runs with the in-process broker and SQLite by default, so the
+# streaming path works with no broker at all - which is what makes the
+# throughput figures in docs/results.md reproducible from a clean checkout.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rtml
+      # Local development only; the deployed stack takes this from a secret.
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-rtml_local_dev}
+      POSTGRES_DB: rtml
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/rtml/data/sql/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rtml -d rtml"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  kafka:
+    # KRaft mode: no ZooKeeper, which keeps the local stack to one container.
+    image: bitnami/kafka:3.7
+    environment:
+      KAFKA_CFG_NODE_ID: "0"
+      KAFKA_CFG_PROCESS_ROLES: controller,broker
+      KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka:9093
+      KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: "true"
+      ALLOW_PLAINTEXT_LISTENER: "yes"
+    ports:
+      - "9092:9092"
+    profiles: ["kafka"]
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    profiles: ["cache"]
+
+  api:
+    build:
+      context: .
+      target: runtime
+    ports:
+      - "8000:8000"
+    environment:
+      RTML_ENV: production
+      RTML_LOG_LEVEL: INFO
+      RTML_DATABASE_URL: postgresql+psycopg://rtml:${POSTGRES_PASSWORD:-rtml_local_dev}@postgres:5432/rtml
+      RTML_STREAM_BACKEND: inprocess
+      RTML_MLFLOW_TRACKING_URI: sqlite:///mlflow.db
+    volumes:
+      # The serving bundle is produced by `make train` on the host.
+      - ./artifacts:/app/artifacts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus:v2.51.2
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deployment/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./deployment/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+    depends_on:
+      - api
+    profiles: ["observability"]
+
+  grafana:
+    image: grafana/grafana:10.4.2
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+    volumes:
+      - ./deployment/grafana:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+    profiles: ["observability"]
+
+volumes:
+  postgres_data:
